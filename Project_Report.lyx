@@ -1,0 +1,259 @@
+#LyX 2.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 544
+\begin_document
+\begin_header
+\save_transient_properties true
+\origin unavailable
+\textclass article
+\use_default_options true
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman "default" "Arial"
+\font_sans "default" "default"
+\font_typewriter "default" "default"
+\font_math "auto" "auto"
+\font_default_family default
+\use_non_tex_fonts true
+\font_sc false
+\font_osf false
+\font_sf_scale 100 100
+\font_tt_scale 100 100
+\use_microtype false
+\use_dash_ligatures true
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing double
+\use_hyperref true
+\pdf_bookmarks true
+\pdf_bookmarksnumbered false
+\pdf_bookmarksopen false
+\pdf_bookmarksopenlevel 1
+\pdf_breaklinks false
+\pdf_pdfborder false
+\pdf_colorlinks false
+\pdf_backref false
+\pdf_pdfusetitle true
+\papersize default
+\use_geometry true
+\use_package amsmath 1
+\use_package amssymb 1
+\use_package cancel 1
+\use_package esint 1
+\use_package mathdots 1
+\use_package mathtools 1
+\use_package mhchem 1
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 1
+\use_minted 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\leftmargin 2cm
+\topmargin 2cm
+\rightmargin 2cm
+\bottommargin 2cm
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\is_math_indent 0
+\math_numbering_side default
+\quotes_style english
+\dynamic_quotes 0
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Standard
+\align center
+
+\size huge
+METAM Algorithm Implementation and Analysis
+\end_layout
+
+\begin_layout Standard
+\align center
+
+\size large
+as proposed in the paper “Goal-Oriented Data Discovery” [Sainyam Galhotra
+ et al.]
+\end_layout
+
+\begin_layout Standard
+\align center
+Sofiya Shtetenson and Timna Smadja 
+\end_layout
+
+\begin_layout Section
+Project Overview
+\end_layout
+
+\begin_layout Subsection
+Introduction
+\end_layout
+
+\begin_layout Standard
+METAM (Minimal Essential Task Augmentation Mechanism) is a goal-oriented
+ data discovery algorithm that iteratively identifies and joins external
+ candidate datasets to improve a downstream task’s performance (for example
+ - classification accuracy).
+ By selectively augmenting the core dataset with relevant features, METAM
+ automates what data scientists often do manually—searching for beneficial
+ external data, joining it, and then observing performance gains.
+\end_layout
+
+\begin_layout Subsection
+Algorithm Methodology Overview
+\end_layout
+
+\begin_layout Enumerate
+Candidate Generation: Gather a repository of potential augmentation datasets.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Utility Estimation: For each candidate, join it with the current “base”
+ dataset and measure downstream performance (e.g., train/test a model).
+ 
+\end_layout
+
+\begin_layout Enumerate
+Adaptive Querying: Pick the candidate augmentation that yields the largest
+ improvement.
+ 
+\end_layout
+
+\begin_layout Enumerate
+Iterate until no significant improvement is observed or candidates are exhausted.
+ 
+\end_layout
+
+\begin_layout Subsection
+Implementation Details
+\end_layout
+
+\begin_layout Itemize
+Language: Python 
+\end_layout
+
+\begin_layout Itemize
+Libraries: pandas, scikit-learn, numpy, and Streamlit for the UI 
+\end_layout
+
+\begin_layout Itemize
+Steps: 
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+Data Ingestion and alignment 
+\end_layout
+
+\begin_layout Enumerate
+Performance Metric Calculation 
+\end_layout
+
+\begin_layout Enumerate
+Augmentation Selection using the iterative METAM loop 
+\end_layout
+
+\begin_layout Enumerate
+Final Model Evaluation 
+\end_layout
+
+\end_deeper
+\begin_layout Subsection
+Experimental Setup
+\end_layout
+
+\begin_layout Itemize
+Dataset 1: Real‐world dataset from data.gov (e.g., a housing dataset).
+ 
+\end_layout
+
+\begin_layout Itemize
+Dataset 2: Synthetic data with noise and missing values to test robustness.
+ 
+\end_layout
+
+\begin_layout Itemize
+Tasks: Classification (or regression) tasks relevant to the data, measured
+ with standard metrics.
+ 
+\end_layout
+
+\begin_layout Subsection
+Results (Placeholder)
+\end_layout
+
+\begin_layout Itemize
+Performance Improvement: We observe increments in accuracy/precision/etc.
+ with each augmentation step.
+ 
+\end_layout
+
+\begin_layout Itemize
+Running Times: The iterative approach is more expensive than a single run
+ but yields better final performance.
+ 
+\end_layout
+
+\begin_layout Subsection
+Conclusion 
+\end_layout
+
+\begin_layout Standard
+METAM streamlines the process of discovering and applying data augmentations
+ that truly help a downstream task.
+ The main advantage lies in automating the search for beneficial joins and
+ halting when no further improvement is observed.
+\end_layout
+
+\begin_layout Subsection
+Future Work 
+\end_layout
+
+\begin_layout Itemize
+Scalability: Explore parallelization strategies for large data repositories.
+ 
+\end_layout
+
+\begin_layout Itemize
+Advanced Join Methods: Use semantic matching or entity resolution to handle
+ complex merges.
+ 
+\end_layout
+
+\begin_layout Itemize
+Interactive UI: Let users steer or override automated decisions to incorporate
+ domain knowledge.
+\end_layout
+
+\end_body
+\end_document
