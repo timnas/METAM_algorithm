@@ -111,148 +111,502 @@ Sofiya Shtetenson and Timna Smadja
 \end_layout
 
 \begin_layout Section
-Project Overview
-\end_layout
-
-\begin_layout Subsection
 Introduction
 \end_layout
 
 \begin_layout Standard
-METAM (Minimal Essential Task Augmentation Mechanism) is a goal-oriented
- data discovery algorithm that iteratively identifies and joins external
- candidate datasets to improve a downstream task’s performance (for example
- - classification accuracy).
+In modern data-driven decision-making, the availability of large and diverse
+ datasets presents both an opportunity and a challenge.
+ While more data can potentially improve predictive performance, integrating
+ heterogeneous data sources in a meaningful way is nontrivial.
+ In this work, we implement and evaluate METAM (Minimal Essential Task Augmentat
+ion Mechanism)—a goal-oriented data discovery algorithm that iteratively
+ identifies and joins external candidate datasets to improve a downstream
+ task’s performance (for example - classification accuracy).
  By selectively augmenting the core dataset with relevant features, METAM
  automates what data scientists often do manually—searching for beneficial
  external data, joining it, and then observing performance gains.
 \end_layout
 
+\begin_layout Section
+Background
+\end_layout
+
+\begin_layout Standard
+Traditional data augmentation methods often rely on manual feature engineering
+ or pre-defined heuristics to select supplementary datasets.
+ However, these approaches can be inefficient and may fail to capture the
+ true incremental value of additional data.
+ The METAM algorithm, as described in “METAM: Goal-Oriented Data Discovery”
+ by Sainyam Galhotra et al., introduces a feedback loop in which candidate
+ augmentations are evaluated based on their effect on a downstream utility
+ function.
+ Key aspects of the approach include:
+\end_layout
+
+\begin_layout Itemize
+Data Profiles: Each candidate augmentation is characterized by task-independent
+ measures such as join key overlap, data completeness, and feature richness.
+ 
+\end_layout
+
+\begin_layout Itemize
+Adaptive Querying: The algorithm alternates between evaluating individual
+ candidates and groups (via clustering) to efficiently explore the augmentation
+ space.
+ 
+\end_layout
+
+\begin_layout Itemize
+Minimal Augmentation Set: Augmentations are only incorporated if they yield
+ a significant improvement in the target task’s utility, ensuring that the
+ final augmented dataset is both parsimonious and effective.
+ 
+\end_layout
+
+\begin_layout Section
+Methodology Overview 
+\end_layout
+
 \begin_layout Subsection
-Algorithm Methodology Overview
+Problem Formulation
 \end_layout
 
-\begin_layout Enumerate
-Candidate Generation: Gather a repository of potential augmentation datasets.
- 
-\end_layout
+\begin_layout Standard
+Given a base dataset 
+\begin_inset Formula $D_{base}$
+\end_inset
 
-\begin_layout Enumerate
-Utility Estimation: For each candidate, join it with the current “base”
- dataset and measure downstream performance (e.g., train/test a model).
- 
-\end_layout
+ and a repository of candidate datasets 
+\begin_inset Formula $\{D_{1},D_{2},...,D_{n}\}$
+\end_inset
 
-\begin_layout Enumerate
-Adaptive Querying: Pick the candidate augmentation that yields the largest
- improvement.
- 
-\end_layout
+, the goal is to select a minimal subset 
+\begin_inset Formula $T\subseteq\{D_{i}\}$
+\end_inset
 
-\begin_layout Enumerate
-Iterate until no significant improvement is observed or candidates are exhausted.
- 
+ such that the augmented dataset 
+\begin_inset Formula $\Gamma(D_{base},T)$
+\end_inset
+
+ achieves a utility 
+\begin_inset Formula $𝑢(Γ(𝐷base,𝑇))≥𝜃$
+\end_inset
+
+, where 
+\begin_inset Formula $\theta$
+\end_inset
+
+ is a predetermined threshold (e.g., based on accuracy for classification
+ tasks).
 \end_layout
 
 \begin_layout Subsection
-Implementation Details
+Algorithm Overview
 \end_layout
 
-\begin_layout Itemize
-Language: Python 
+\begin_layout Standard
+The METAM algorithm proceeds as follows:
 \end_layout
 
-\begin_layout Itemize
-Libraries: pandas, scikit-learn, numpy, and Streamlit for the UI 
-\end_layout
-
-\begin_layout Itemize
-Steps: 
+\begin_layout Enumerate
+Candidate Generation: 
 \end_layout
 
 \begin_deeper
-\begin_layout Enumerate
-Data Ingestion and alignment 
+\begin_layout Standard
+Each candidate augmentation is processed to compute a vector of data profiles
+ (e.g., join key overlap, completeness, and normalized feature count).
+ An initial quality score is assigned as the mean of these profile values.
 \end_layout
 
+\end_deeper
 \begin_layout Enumerate
-Performance Metric Calculation 
+Clustering: 
 \end_layout
 
-\begin_layout Enumerate
-Augmentation Selection using the iterative METAM loop 
+\begin_deeper
+\begin_layout Standard
+Candidates are clustered based on their profile similarity.
+ This step reduces redundant evaluations by grouping similar augmentations.
 \end_layout
 
+\end_deeper
 \begin_layout Enumerate
-Final Model Evaluation 
+Adaptive Querying: 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+The algorithm iteratively queries the utility function by merging candidate
+ augmentations with the base dataset.
+ Candidates are evaluated individually and as part of groups.
+ Only candidates that yield a measurable improvement in utility (compared
+ to a threshold 𝜃 θ) are selected.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+Minimality Check:
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+After candidate selection, a minimality check is performed by attempting
+ to remove each selected augmentation.
+ If removing an augmentation does not reduce the utility below 𝜃 θ, it is
+ considered redundant and removed.
 \end_layout
 
 \end_deeper
 \begin_layout Subsection
-Experimental Setup
-\end_layout
-
-\begin_layout Itemize
-Dataset 1: Real‐world dataset from data.gov (e.g., a housing dataset).
- 
-\end_layout
-
-\begin_layout Itemize
-Dataset 2: Synthetic data with noise and missing values to test robustness.
- 
-\end_layout
-
-\begin_layout Itemize
-Tasks: Classification (or regression) tasks relevant to the data, measured
- with standard metrics.
- 
-\end_layout
-
-\begin_layout Subsection
-Results (Placeholder)
-\end_layout
-
-\begin_layout Itemize
-Performance Improvement: We observe increments in accuracy/precision/etc.
- with each augmentation step.
- 
-\end_layout
-
-\begin_layout Itemize
-Running Times: The iterative approach is more expensive than a single run
- but yields better final performance.
- 
-\end_layout
-
-\begin_layout Subsection
-Conclusion 
+Implementation Details 
 \end_layout
 
 \begin_layout Standard
-METAM streamlines the process of discovering and applying data augmentations
- that truly help a downstream task.
- The main advantage lies in automating the search for beneficial joins and
- halting when no further improvement is observed.
+Our implementation of METAM is in Python and integrates a Streamlit UI for
+ interactive experimentation.
+ 
 \end_layout
 
-\begin_layout Subsection
-Future Work 
+\begin_layout Standard
+Key implementation details include:
 \end_layout
 
 \begin_layout Itemize
-Scalability: Explore parallelization strategies for large data repositories.
+Utility Function: 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+The utility function is computed using an 80/20 train-test split and logistic
+ regression accuracy as the performance metric.
+ To ensure compatibility, non-numeric features (and missing values) are
+ handled by filtering and imputation.
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Candidate Profiles: For each candidate, profiles are computed based on:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Overlap: The ratio of common join keys between the base dataset and the
+ candidate.
  
 \end_layout
 
 \begin_layout Itemize
-Advanced Join Methods: Use semantic matching or entity resolution to handle
- complex merges.
+Completeness: 1 minus the missing rate in the candidate’s join key.
  
 \end_layout
 
 \begin_layout Itemize
-Interactive UI: Let users steer or override automated decisions to incorporate
- domain knowledge.
+Normalized Column Count: The number of columns in the candidate dataset
+ divided by a normalization constant.
+ 
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+Streamlit UI: The UI allows the user to select from the experiments details
+ in section 4.
+ 
+\end_layout
+
+\begin_layout Section
+Experimental Setup
+\end_layout
+
+\begin_layout Enumerate
+
+\bar under
+Feature Engineering
+\bar default
+: Boston Housing Prices Prediction Using Partitioned Features
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+In this experiment, we adopt a novel approach by taking a single, feature‑rich
+ dataset (the Boston Housing dataset) and partitioning it into distinct
+ feature subjects.
+ Specifically, we split the dataset into three groups, then use a reduced
+ version of the dataset as our base.
+ The candidate augmentations, which are the partitioned feature groups,
+ are then merged back into the base data using METAM.
+\end_layout
+
+\begin_layout Standard
+This experimental setting is significant for the task of feature engineering,
+ in the 
+\bar under
+feature reduction perspective
+\bar default
+.
+\end_layout
+
+\begin_layout Standard
+This “reduction” capability highlights METAM’s ability to achieve a minimal
+ yet effective augmentation set, a concept discussed in the original paper
+ in the context of minimality of the augmentation set.
+ While the paper primarily focuses on goal-oriented data discovery, 
+\series bold
+our experiment demonstrates that the same framework can be leveraged to
+ reduce redundancy and perform implicit feature selection
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Base Set:
+\bar default
+ 'RM' (average number of rooms per dwelling) and 'LSTAT' (percentage of
+ lower status of the population)—along with a dummy join key "Id" and a
+ binary target "expensive" (1 if MEDV is at or above the median, 0 otherwise).
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Task:
+\bar default
+ predicting the likelihood of housing to be expensive (greater than the
+ medain)
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Candidate Augmentations:
+\bar default
+ The remaining features were grouped into three candidate subjects:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Crime/Industrial Features (CRIM, INDUS, NOX, AGE, DIS.)
+\end_layout
+
+\begin_layout Itemize
+Zoning/Tax Features) (ZN, RAD, TAX, PTRATIO.)
+\end_layout
+
+\begin_layout Itemize
+Structural/Demographic Features (CHAS,B)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+
+\bar under
+Results:
+\bar default
+ Selected augmentation: Zoning/Tax Features
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Explanation:
+\bar default
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+Initial Base Utility: The base model using only 'RM' and 'LSTAT' achieved
+ an accuracy of 81.37%.
+ Iteration 1: Merging Candidate 1 resulted in a utility of 84.31% (gain of
+ 2.94%).
+ In the grouping step, Candidate 2 from the identified group yielded a higher
+ utility of 85.29%.
+ The algorithm selected Candidate 2 (Zoning/Tax Features), which improved
+ the base utility from 81.37% to 85.29%.
+ A minimality check confirmed that removing this augmentation dropped the
+ utility back to 81.37%, verifying its contribution.
+ 
+\end_layout
+
+\begin_layout Standard
+Final Performance: 85.29% accuracy, with "Zoning/Tax Features" selected as
+ the effective augmentation.
+ 
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+
+\bar under
+Conclusion:
+\bar default
+ This experiment demonstrates that when a rich dataset is partitioned into
+ distinct feature groups, METAM can be used for feature reduction—effectively
+ identifying which groups add incremental predictive power and which are
+ redundant.
+ In this case, even though all candidate profiles showed high overlap and
+ data completeness, the algorithm selected the "Zoning/Tax Features" augmentatio
+n because it provided a measurable improvement in accuracy.
+ This result aligns with the goal-oriented nature of METAM as described
+ in the paper, emphasizing the minimality of the augmentation set: augmentations
+ are incorporated only when they significantly enhance the utility of the
+ model.
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+
+\bar under
+The augmentation set is minimal
+\bar default
+: Seattle Housing Prices Prediction
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Base set: seattle_housing_prices
+\end_layout
+
+\begin_layout Itemize
+Augementation candidates: seattle_incomes, seattle_pet_licenses, seattle_crime_r
+ates,
+\end_layout
+
+\begin_layout Itemize
+Task: predicting the likelihood of housing to be expensive (greater than
+ the medain) based on zip codes
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Result:
+\bar default
+ no augmentation was selected
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Explanation:
+\bar default
+ The base model already achieved a very high predictive utility (98.02% accuracy).
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+We computed candidate profiles that measured the overlap of join keys, data
+ completeness, and relative feature richness.
+ For instance, the crime rate candidate had a high overlap (0.93) and a quality
+ score of 0.65.
+ Despite these favorable attributes, when we merged the candidate into the
+ base dataset, the observed gain in utility was negligible.
+\end_layout
+
+\begin_layout Standard
+As we can see, because the base dataset already yielded near-optimal performance
+, the additional features did not increase the utility sufficiently.
+ Therefore, the algorithm correctly concluded that further augmentation
+ was unnecessary and did not select any candidate.
+\end_layout
+
+\begin_layout Standard
+This behavior is consistent with the discussion in the paper on the 
+\bar under
+monotonicity of the utility function
+\bar default
+ and the 
+\bar under
+minimality of the augmentation set
+\bar default
+: when the base data already approaches optimal predictive performance,
+ additional augmentations may be redundant.
+ 
+\end_layout
+
+\end_deeper
+\end_deeper
+\begin_layout Enumerate
+
+\bar under
+Goal-oriented nature of METAM
+\bar default
+ - Seattle Pet Ownership 
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Base set: seattle_pet_licenses (containing only “zipcode” and a weak predictor,
+ “total_pets”)
+\end_layout
+
+\begin_layout Itemize
+Task: predicting the likelihood of having a high proportion of cats per
+ zipcode
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Result:
+\bar default
+ selected augmentation: seattle_incomes
+\end_layout
+
+\begin_layout Itemize
+
+\bar under
+Explanation:
+\bar default
+ 
+\end_layout
+
+\begin_deeper
+\begin_layout Standard
+In this experiment we used exactly the same dataset as in the previous example,
+ but for a different task.
+ 
+\end_layout
+
+\begin_layout Standard
+The base dataset produced a modest utility of 0.6216.
+ By incorporating the seattle_incomes dataset as a candidate augmentation
+ METAM detected a measurable gain, improving the utility to 0.6410 and thus
+ selected the augmentation.
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+These two examples contrast highlights the 
+\bar under
+goal-oriented nature of METAM
+\bar default
+: when the base dataset is already strong, additional features are unnecessary,
+ but when the base is weak, even modest improvements from candidate augmentation
+s are recognized and selected.
+ This behavior aligns with the paper’s discussion on optimizing query efficiency
+ and achieving a minimal yet effective augmentation set.
+\end_layout
+
+\end_deeper
+\begin_layout Section
+Conclusion
+\end_layout
+
+\begin_layout Standard
+This report demonstrates that METAM's goal-oriented data augmentation approach
+ is effective in diverse scenarios.
+ When the base dataset is already highly predictive, as in Experiment 2,
+ no augmentation is needed.
+ Conversely, when the base is weak, as in Experiment 3) even small but measurabl
+e improvements lead to the selection of useful augmentations.
+ Moreover, the Boston Housing experiment shows that METAM can be applied
+ to feature reduction tasks—identifying and selecting only the most beneficial
+ feature groups.
+ These findings underscore the algorithm's potential for improving decision-maki
+ng in real-world applications.
 \end_layout
 
 \end_body
