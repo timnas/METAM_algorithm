@@ -3,6 +3,8 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
 from sklearn.cluster import AgglomerativeClustering
+from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 
 
 def compute_utility(df, target_col, drop_cols, random_state=42):
@@ -21,6 +23,32 @@ def compute_utility(df, target_col, drop_cols, random_state=42):
     model.fit(X_train, y_train)
     preds = model.predict(X_test)
     return accuracy_score(y_test, preds)
+
+def compute_semantic_similarity(base_df, candidate_df):
+    """
+    Compute semantic similarity between two datasets at the column level.
+    For each column in the base dataset, find the most similar column in the candidate dataset.
+    The final similarity score is the average of these best match similarities.
+    """
+    base_cols = base_df.columns.tolist()
+    candidate_cols = candidate_df.columns.tolist()
+
+    model = SentenceTransformer('all-MiniLM-L6-v2')
+
+    # Embed each column name individually
+    base_embeddings = model.encode(base_cols)
+    candidate_embeddings = model.encode(candidate_cols)
+
+    # Compute pairwise cosine similarity (base vs candidate columns)
+    similarity_matrix = cosine_similarity(base_embeddings, candidate_embeddings)
+
+    # For each base column, find the max similarity to any candidate column (best match for each column)
+    best_match_scores = similarity_matrix.max(axis=1)
+
+    # Final semantic similarity is the average of best match scores across all base columns
+    final_similarity_score = np.mean(best_match_scores)
+
+    return final_similarity_score
 
 
 class METAM:
@@ -80,14 +108,21 @@ class METAM:
         for col in merged.select_dtypes(include=[np.number]).columns:
             merged[col] = merged[col].fillna(merged[col].mean())
         return merged
+    
 
     def compute_profile(self, candidate):
         base_keys = set(self.base_data[self.join_on].dropna().astype(str).unique())
         cand_keys = set(candidate['df'][candidate['join_on']].dropna().astype(str).unique())
+
         overlap = len(base_keys.intersection(cand_keys)) / (len(base_keys) + 1e-6)
         missing_rate = candidate['df'][candidate['join_on']].isna().mean()
         num_cols = candidate['df'].shape[1] / 100.0
-        return np.array([overlap, 1 - missing_rate, num_cols])
+
+        semantic_similarity = compute_semantic_similarity(self.base_data, candidate['df'])
+
+        profile_vector = np.array([overlap, 1 - missing_rate, num_cols, semantic_similarity])
+
+        return profile_vector
 
     def generate_candidates(self):
         candidates = []
@@ -212,36 +247,45 @@ class METAM:
 if __name__ == "__main__":
     # Load the Boston Housing dataset (assumed to be saved as "boston_housing.csv")
     # The CSV should have columns: CRIM, ZN, INDUS, CHAS, NOX, RM, AGE, DIS, RAD, TAX, PTRATIO, B, LSTAT, MEDV.
-    df = pd.read_csv("data/boston_housing.csv")
+    df = pd.read_csv("data/AmesHousing.csv")
+    df.columns = (df.columns
+                    .str.replace(" ", "_")
+                    .str.replace("-", "_")
+                    .str.replace(r"[^\w_]", "")  # Remove any special symbols like $, #
+                    .str.strip())
 
     # Create a dummy join key "Id" from the row index.
     df["Id"] = df.index.astype(str)
 
     # Create a binary target "expensive": 1 if MEDV (in $1000's) is at or above the median, else 0.
-    median_medv = df["MEDV"].median()
-    df["expensive"] = (df["MEDV"] >= median_medv).astype(int)
+    df["expensive"] = (df["SalePrice"] >= df["SalePrice"].median()).astype(int)
 
     # Define the base dataset using a few key predictors.
-    base_columns = ["Id", "RM", "LSTAT", "expensive"]
+    base_columns = ["Id", "Lot_Area", "Overall_Qual", "expensive"]
     base_df = df[base_columns].copy()
 
     # Define candidate augmentation datasets by splitting the remaining columns.
     # Candidate 1: Use columns related to crime and industrial activity.
-    cand1_columns = ["Id", "CRIM", "INDUS", "NOX", "AGE", "DIS"]
+    cand1_columns = ["Id", "Neighborhood", "Year_Built", "Garage_Cars"]
     cand1_df = df[cand1_columns].copy()
 
     # Candidate 2: Use columns related to zoning and taxation.
-    cand2_columns = ["Id", "ZN", "RAD", "TAX", "PTRATIO"]
-    cand2_df = df[cand2_columns].copy()
+    cand2_df = pd.DataFrame({
+        "Id": df["Id"],
+        "Median_Income": np.random.randint(30000, 100000, size=len(df)),
+        "Unemployment_Rate": np.random.uniform(3, 12, size=len(df))
+    })
 
-    # Candidate 3: Use columns related to structural or demographic features.
-    cand3_columns = ["Id", "CHAS", "B"]
-    cand3_df = df[cand3_columns].copy()
+    cand3_df = pd.DataFrame({
+        "Id": df["Id"],
+        "Year_Built": df["Year_Built"],
+        "Avg_Temp_During_Build": np.random.uniform(-5, 30, size=len(df))
+    })
 
     # Create candidate tuples (each with the global join key "Id") and add candidate names.
-    candidate1 = (cand1_df, "Id", "Crime/Industrial Features")
-    candidate2 = (cand2_df, "Id", "Zoning/Tax Features")
-    candidate3 = (cand3_df, "Id", "Structural/Demographic Features")
+    candidate1 = (cand1_df, "Id", "Neighborhood/Structural Features")
+    candidate2 = (cand2_df, "Id", "Economic Indicators")
+    candidate3 = (cand3_df, "Id", "Weather Data During Construction")
     candidates = [candidate1, candidate2, candidate3]
 
     # Initialize and run METAM.
