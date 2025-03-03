@@ -24,31 +24,29 @@ def compute_utility(df, target_col, drop_cols, random_state=42):
     preds = model.predict(X_test)
     return accuracy_score(y_test, preds)
 
-def compute_semantic_similarity(base_df, candidate_df):
+
+def compute_semantic_similarity(base_df, candidate_df, baseline=0.2):
     """
     Compute semantic similarity between two datasets at the column level.
-    For each column in the base dataset, find the most similar column in the candidate dataset.
-    The final similarity score is the average of these best match similarities.
+    The raw score (average best-match cosine similarity) is linearly transformed so that:
+      - A raw score of 1.0 maps to 1.0.
+      - A raw score of 'baseline' maps to 0.
     """
     base_cols = base_df.columns.tolist()
     candidate_cols = candidate_df.columns.tolist()
 
     model = SentenceTransformer('all-MiniLM-L6-v2')
-
-    # Embed each column name individually
     base_embeddings = model.encode(base_cols)
     candidate_embeddings = model.encode(candidate_cols)
 
-    # Compute pairwise cosine similarity (base vs candidate columns)
     similarity_matrix = cosine_similarity(base_embeddings, candidate_embeddings)
-
-    # For each base column, find the max similarity to any candidate column (best match for each column)
     best_match_scores = similarity_matrix.max(axis=1)
+    raw_score = np.mean(best_match_scores)
 
-    # Final semantic similarity is the average of best match scores across all base columns
-    final_similarity_score = np.mean(best_match_scores)
-
-    return final_similarity_score
+    # Transform the raw score so that baseline maps to 0 and 1.0 remains 1.0.
+    adjusted_score = (raw_score - baseline) / (1 - baseline)
+    adjusted_score = np.clip(adjusted_score, 0, 1)
+    return adjusted_score
 
 
 class METAM:
@@ -108,20 +106,18 @@ class METAM:
         for col in merged.select_dtypes(include=[np.number]).columns:
             merged[col] = merged[col].fillna(merged[col].mean())
         return merged
-    
 
     def compute_profile(self, candidate):
         base_keys = set(self.base_data[self.join_on].dropna().astype(str).unique())
         cand_keys = set(candidate['df'][candidate['join_on']].dropna().astype(str).unique())
-
         overlap = len(base_keys.intersection(cand_keys)) / (len(base_keys) + 1e-6)
         missing_rate = candidate['df'][candidate['join_on']].isna().mean()
         num_cols = candidate['df'].shape[1] / 100.0
 
-        semantic_similarity = compute_semantic_similarity(self.base_data, candidate['df'])
+        # Get adjusted semantic similarity score:
+        semantic_similarity = compute_semantic_similarity(self.base_data, candidate['df'], baseline=0.2)
 
         profile_vector = np.array([overlap, 1 - missing_rate, num_cols, semantic_similarity])
-
         return profile_vector
 
     def generate_candidates(self):
