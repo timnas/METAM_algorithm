@@ -1,4 +1,0 @@
-make sure both metam.py and streamlit_app.py are in the same folder
-run:
-    pip install streamlit scikit-learn pandas
-    streamlit run streamlit_app.py

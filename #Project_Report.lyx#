@@ -110,6 +110,23 @@ as proposed in the paper “Goal-Oriented Data Discovery” [Sainyam Galhotra
 Sofiya Shtetenson and Timna Smadja 
 \end_layout
 
+\begin_layout Standard
+\align center
+
+\series bold
+\size large
+\color blue
+\begin_inset CommandInset href
+LatexCommand href
+name "GitHub"
+target "https://github.com/timnas/METAM_algorithm.git"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Introduction
 \end_layout
@@ -710,17 +727,63 @@ Conclusion
 \end_layout
 
 \begin_layout Standard
-This report demonstrates that METAM's goal-oriented data augmentation approach
- is effective in diverse scenarios.
- When the base dataset is already highly predictive, as in Experiment 2,
- no augmentation is needed.
- Conversely, when the base is weak, as in Experiment 3) even small but measurabl
-e improvements lead to the selection of useful augmentations.
- Moreover, the Boston Housing experiment shows that METAM can be applied
- to feature reduction tasks—identifying and selecting only the most beneficial
- feature groups.
- These findings underscore the algorithm's potential for improving decision-maki
-ng in real-world applications.
+This report demonstrates the versatility and effectiveness of METAM's goal-orien
+ted data augmentation approach across diverse scenarios.
+ Our experiments reveal several important insights:
+\end_layout
+
+\begin_layout Itemize
+Selective Augmentation: In cases where the base dataset is already highly
+ predictive, such as in experiment 2, METAM correctly identifies that additional
+ augmentation would be redundant.
+ The algorithm’s minimality check ensures that only augmentations yielding
+ a measurable improvement are integrated into the final dataset.
+ This not only prevents overfitting by avoiding unnecessary complexity but
+ also reinforces the notion that a well-engineered base dataset can sometimes
+ be sufficient for achieving high performance.
+\end_layout
+
+\begin_layout Itemize
+Sensitivity to Modest Gains: In scenarios with a relatively weak base dataset,
+ such as in experiment 3, even modest improvements are recognized and exploited.
+ This demonstrates METAM’s sensitivity to incremental benefits, highlighting
+ its ability to fine-tune the feature set to boost performance.
+ The adaptive querying mechanism dynamically balances exploration (evaluating
+ multiple candidate augmentations) with exploitation (selecting the augmentation
+ that most improves utility), aligning with the paper’s claims about efficient
+ query optimization.
+\end_layout
+
+\begin_layout Itemize
+Application to Regression Tasks: The Housing Price Regression experiment
+ illustrates METAM’s capacity to extend beyond binary classification.
+ By integrating external datasets (despite some candidates having lower
+ initial quality scores), METAM was able to extract non-redundant, valuable
+ information—evidenced by a measurable increase in the utility score.
+ This confirms that METAM can be effectively applied to more complex, continuous
+ prediction tasks, further broadening its applicability in real-world scenarios.
+\end_layout
+
+\begin_layout Itemize
+Theoretical Consistency: Across all experiments, the behavior of METAM aligns
+ with the theoretical foundations presented in the original paper.
+ The algorithm’s reliance on data profiles—including semantic similarity—ensures
+ that candidate augmentations are evaluated on multiple relevant dimensions.
+ Moreover, the clustering and minimality checks guarantee that only the
+ most informative augmentations are retained.
+ This selective process not only reduces computational overhead but also
+ mitigates the risk of incorporating noisy or redundant data.
+\end_layout
+
+\begin_layout Standard
+In summary, our implementation and experiments underscore the strength of
+ METAM's adaptive, minimal, and goal-oriented approach to data augmentation.
+ The framework successfully balances the trade-off between adding extra
+ features and maintaining a parsimonious model, ultimately leading to enhanced
+ predictive performance.
+ These findings suggest that METAM can serve as a valuable tool in a variety
+ of data-driven decision-making applications, from classification to regression
+ tasks, by automating and optimizing the process of data augmentation.
 \end_layout
 
 \end_body
