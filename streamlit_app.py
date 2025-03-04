@@ -296,7 +296,6 @@ class METAM:
         # st.write("Final selected augmentations:", [cand["name"] for cand in minimal_solution])
         return current_data, current_util, minimal_solution
 
-
 def main():
     st.markdown("""
         <style>
@@ -307,22 +306,26 @@ def main():
         """, unsafe_allow_html=True)
     st.markdown("<div class='main-title'><h1>METAM: Goal-Oriented Data Augmentation</h1></div>", unsafe_allow_html=True)
     st.sidebar.header("Select Experiment")
-    experiment = st.sidebar.selectbox("Choose Experiment",
-                                      ("Seattle Housing Price Regression",
-                                       "High Cat Ratio Prediction",
-                                       "Boston Housing Experiment"))
+
+    # Added "Expensive Housing Classification" to the experiment list
+    experiment = st.sidebar.selectbox(
+        "Choose Experiment",
+        (
+            "Classification - Expensive Housing in Boston",
+            "Expensive Housing Classification in Seattle",
+            "High Cat Ratio Classification",
+            "Housing Price in Seattle Regression "
+        )
+    )
 
     start_time = time.time()
 
-    if experiment == "Seattle Housing Price Regression":
-        st.markdown("<div class='experiment-box'><h3>Experiment 1: Seattle Housing Price Regression</h3></div>",
-                    unsafe_allow_html=True)
-        # Base dataset: Seattle housing prices with target 'price'
+    if experiment == "Housing Price in Seattle Regression ":
+        st.markdown("<div class='experiment-box'><h3>Experiment 4: Housing Price in Seattle Regression </h3></div>", unsafe_allow_html=True)
         base_df = pd.read_csv("data/seattle_housing_prices.csv")
         base_df.rename(columns={"zip_code": "zipcode"}, inplace=True)
         base_df["price"] = pd.to_numeric(base_df["price"], errors='coerce')
         base_df = base_df.dropna(subset=["price"])
-        # Candidate augmentations: other datasets with zipcode
         candidate_crime = pd.read_csv("data/seattle_prop_crime_rate.csv")
         candidate_crime_tuple = (candidate_crime.copy(), "zipcode", "Crime Rate Data")
         candidate_pet = pd.read_csv("data/seattle_pet_licenses.csv")
@@ -344,9 +347,36 @@ def main():
         )
         final_data, final_util, chosen_augs = metam.run_metam()
 
-    elif experiment == "High Cat Ratio Prediction":
-        st.markdown("<div class='experiment-box'><h3>Experiment 2: Predicting High Cat Ratio per Zipcode</h3></div>",
-                    unsafe_allow_html=True)
+    elif experiment == "Expensive Housing Classification in Seattle":
+        # NEW experiment block for classification
+        st.markdown("<div class='experiment-box'><h3>Experiment 2: Expensive Housing Classification in Seattle</h3></div>", unsafe_allow_html=True)
+        base_df = pd.read_csv("data/seattle_housing_prices.csv")
+        base_df.rename(columns={"zip_code": "zipcode"}, inplace=True)
+        median_price = base_df["price"].median()
+        base_df["expensive"] = (base_df["price"] >= median_price).astype(int)
+        candidate_crime = pd.read_csv("data/seattle_prop_crime_rate.csv")
+        candidate_crime_tuple = (candidate_crime.copy(), "zipcode", "Crime Rate Data")
+        candidate_pet = pd.read_csv("data/seattle_pet_licenses.csv")
+        candidate_pet.rename(columns={"zip_code": "zipcode"}, inplace=True)
+        candidate_pet_tuple = (candidate_pet.copy(), "zipcode", "Pet Licenses Data")
+        candidate_incomes = pd.read_csv("data/seattle_wa_incomes_zip_code.csv")
+        candidate_incomes.rename(columns={"Zip Code": "zipcode"}, inplace=True)
+        candidate_incomes_tuple = (candidate_incomes.copy(), "zipcode", "Incomes Data")
+        candidates = [candidate_crime_tuple, candidate_pet_tuple, candidate_incomes_tuple]
+        theta = st.sidebar.slider("Utility Threshold (theta)", 0.8, 1.0, 0.98)
+
+        metam = METAM(
+            base_data=base_df,
+            base_target_col="expensive",
+            candidate_datasets=candidates,
+            join_on="zipcode",
+            theta=theta,
+            task_type="classification"
+        )
+        final_data, final_util, chosen_augs = metam.run_metam()
+
+    elif experiment == "High Cat Ratio Classification":
+        st.markdown("<div class='experiment-box'><h3>Experiment 3: High Cat Ratio Classification</h3></div>", unsafe_allow_html=True)
         pets_df = pd.read_csv("data/seattle_pet_licenses.csv")
         pets_df.rename(columns={"zip_code": "zipcode"}, inplace=True)
         agg_df = pets_df.groupby("zipcode").agg(
@@ -372,9 +402,8 @@ def main():
         )
         final_data, final_util, chosen_augs = metam.run_metam()
 
-    else:  # Boston Housing Experiment
-        st.markdown("<div class='experiment-box'><h3>Experiment 3: Boston Housing Experiment</h3></div>",
-                    unsafe_allow_html=True)
+    elif experiment == "Classification - Expensive Housing in Boston":
+        st.markdown("<div class='experiment-box'><h3>Experiment 1: Classification - Expensive Housing in Boston</h3></div>", unsafe_allow_html=True)
         df = pd.read_csv("data/boston_housing.csv")
         df["Id"] = df.index.astype(str)
         median_medv = df["MEDV"].median()
@@ -408,11 +437,10 @@ def main():
 
     running_time = time.time() - start_time
     st.markdown("<div class='results-box'><h3>Results</h3></div>", unsafe_allow_html=True)
-    # st.markdown(f"<p class='metric'>Final Utility: {final_util:.4f}</p>", unsafe_allow_html=True)
-    # st.write("**Running Time (seconds):**", f"{running_time:.2f}")
-    # st.write("**Selected Augmentations:**", [cand["name"] for cand in chosen_augs])
+
     chosen_aug_names = [cand["name"] for cand in chosen_augs]
     chosen_aug_str = ", ".join(chosen_aug_names) if chosen_aug_names else "None"
+
     st.markdown("""
         <div style="
             justify-content: space-between; 
@@ -431,6 +459,7 @@ def main():
             </div>
         </div>
         """, unsafe_allow_html=True)
+
     st.markdown("""
     <div style="
         justify-content: space-between; 
@@ -449,6 +478,7 @@ def main():
         </div>
     </div>
     """, unsafe_allow_html=True)
+
     st.markdown("""
     <div style="
         justify-content: space-between; 
@@ -467,6 +497,7 @@ def main():
         </div>
     </div>
     """, unsafe_allow_html=True)
+
     st.markdown("""
     <div style="
         margin-top: 20px;
@@ -484,35 +515,39 @@ def main():
     </div>
     """, unsafe_allow_html=True)
 
-    # st.markdown("<h3>Merged Data Summary</h3>", unsafe_allow_html=True)
-    # st.write(final_data.describe(include='all'))
-
     st.markdown("<h3>Analysis Summary</h3>", unsafe_allow_html=True)
-    if experiment == "Seattle Housing Price Regression":
+    if experiment == "Housing Price in Seattle Regression ":
         st.markdown("""
-        **Experiment 1: Seattle Housing Price Regression**  
+        **Experiment 4: Housing Price in Seattle Regression **  
         - **Setup:** Base dataset from Seattle Housing Prices with target 'price' (continuous).  
           Candidate augmentations include Crime Rate Data, Pet Licenses Data, and Incomes Data.  
-        - **Observation:** Predicting the actual housing price is a challenging task due to market complexity. METAM merges candidate datasets that add valuable information—improving the regression model's R² score beyond the baseline performance.  
         - **Conclusion:** This experiment demonstrates that METAM can be applied to complex regression tasks. By augmenting the base housing data with external factors, the predictive power (R² score) of the model increases, indicating improved performance.
         """)
-    elif experiment == "High Cat Ratio Prediction":
+    elif experiment == "Expensive Housing Classification in Seattle ":
         st.markdown("""
-        **Experiment 2: Predicting High Cat Ratio per Zipcode**  
+        **Experiment 2: Expensive Housing Classification in Seattle**  
+        - **Setup:** Base dataset from Seattle Housing Prices (using 'zipcode') with a binary target 'expensive' (price >= median).  
+          Candidate augmentations include Crime Rate Data, Pet Licenses Data, and Incomes Data.  
+        - **Observation:** The base model already provides a strong baseline for classification. METAM checks each candidate augmentation’s utility gain and only merges those that improve accuracy above the threshold.  
+        - **Conclusion:** This scenario highlights METAM’s ability to avoid unnecessary augmentations when the base dataset is already highly predictive, consistent with the minimality principle.
+        """)
+    elif experiment == "High Cat Ratio Classification":
+        st.markdown("""
+        **Experiment 3: High Cat Ratio Classification**  
         - **Setup:** Base dataset aggregated from Seattle Pet Licenses (using 'zipcode' and weak predictor 'total_pets') with target 'cat_present'.  
         - **Observation:** The base model produced modest performance (≈62% accuracy). Incorporating the Incomes Data improved accuracy to ≈64%, so the candidate was selected.  
         - **Conclusion:** METAM recognized modest improvements when the base dataset is weak, demonstrating its goal-oriented approach.
         """)
-    else:
+    elif experiment == "Classification - Expensive Housing in Boston":
         st.markdown("""
-        **Experiment 3: Boston Housing Experiment**  
+        **Experiment 1: Classification - Expensive Housing in Boston**  
         - **Setup:** Base dataset derived from the Boston Housing dataset (using 'Id', 'RM', and 'LSTAT' as predictors with target 'expensive').  
         - **Candidate Augmentations:**  
           - Crime/Industrial Features (CRIM, INDUS, NOX, AGE, DIS)  
           - Zoning/Tax Features (ZN, RAD, TAX, PTRATIO)  
           - Structural/Demographic Features (CHAS, B)  
         - **Observation:** The base model’s performance was moderate (≈81.37% accuracy). The algorithm selected "Zoning/Tax Features," boosting accuracy to ≈85.29%.  
-        - **Conclusion:** METAM effectively identifies augmentations that offer significant improvements, showcasing a form of feature reduction in a complex scenario.
+        - **Conclusion:**  This experiment demonstrates that when a rich dataset is partitioned into distinct feature groups, METAM can be used for feature reduction—effectively identifying which groups add incremental predictive power and which are redundant. 
         """)
 
 
