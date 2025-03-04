@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, LinearRegression
 from sklearn.metrics import accuracy_score
 from sklearn.cluster import AgglomerativeClustering
 from sentence_transformers import SentenceTransformer
@@ -36,6 +36,21 @@ st.markdown("""
           overflow: visible;
           cursor: pointer;
     }
+    
+    .flex-container {
+      display: flex;
+      background-color: DodgerBlue;
+      justify-content: space-between; 
+      margin-top: 20px;
+    }
+    
+    .flex-container > div {
+      background-color: #f1f1f1;
+      margin: 10px;
+      padding: 20px;
+      font-size: 30px;
+      justify-content: space-between; 
+    }
 
     /* Large metric styling */
     .metric {
@@ -55,7 +70,7 @@ st.markdown("""
     
     /* Results box styling */
     .results-box {
-        background-color: #6A9C89; /* Dark green */
+        background-color: #B7CDB0; /* Dark green */
         padding: 15px;
         border-radius: 5px;
         margin-bottom: 5px;
@@ -74,7 +89,7 @@ st.markdown("""
 
 
 # ---------------------- Utility Function ----------------------
-def compute_utility(df, target_col, drop_cols, random_state=42):
+def compute_utility(df, target_col, drop_cols, task_type='classification', random_state=42):
     df = df.sample(frac=1, random_state=random_state).reset_index(drop=True)
     split_idx = int(0.8 * len(df))
     train_df = df.iloc[:split_idx]
@@ -86,20 +101,21 @@ def compute_utility(df, target_col, drop_cols, random_state=42):
     X_test = X_test.fillna(train_means)
     y_train = train_df[target_col]
     y_test = test_df[target_col]
-    model = LogisticRegression(max_iter=1000)
-    model.fit(X_train, y_train)
-    preds = model.predict(X_test)
-    return accuracy_score(y_test, preds)
-
+    if task_type == 'classification':
+        model = LogisticRegression(max_iter=1000)
+        model.fit(X_train, y_train)
+        preds = model.predict(X_test)
+        return accuracy_score(y_test, preds)
+    elif task_type == 'regression':
+        model = LinearRegression()
+        model.fit(X_train, y_train)
+        score = model.score(X_test, y_test)  # R² score
+        return max(score, 0)  # Clip negative values to 0
+    else:
+        raise NotImplementedError("Task type not implemented.")
 
 # ---------------------- Semantic Similarity Function ----------------------
 def compute_semantic_similarity(base_df, candidate_df, baseline=0.2):
-    """
-    Compute semantic similarity between two datasets at the column level.
-    The raw score (average best-match cosine similarity) is linearly transformed so that:
-      - A raw score of 1.0 maps to 1.0.
-      - A raw score equal to 'baseline' maps to 0.
-    """
     base_cols = base_df.columns.tolist()
     candidate_cols = candidate_df.columns.tolist()
     model = SentenceTransformer('all-MiniLM-L6-v2')
@@ -112,14 +128,12 @@ def compute_semantic_similarity(base_df, candidate_df, baseline=0.2):
     adjusted_score = np.clip(adjusted_score, 0, 1)
     return adjusted_score
 
-
 # ---------------------- METAM Algorithm ----------------------
 class METAM:
     def __init__(self, base_data, base_target_col, candidate_datasets, join_on,
                  task_type='classification', epsilon=0.05, tau=None, theta=0.8):
         self.base_data = base_data.copy()
         self.base_target_col = base_target_col
-        # Candidate tuple: (df, join_key, candidate_name)
         self.candidate_datasets = candidate_datasets
         self.join_on = join_on
         self.task_type = task_type
@@ -128,6 +142,12 @@ class METAM:
         self.selected_augmentations = []
 
         self.candidates = self.generate_candidates()
+        # For each candidate, compute the utility after a single merge
+        for cand in self.candidates:
+            merged_once = self.merge_augmentation(self.base_data, cand)
+            cand_utility = self.utility(merged_once)
+            cand["candidate_utility"] = cand_utility
+
         st.markdown("### Candidate Augmentation Details")
         candidate_details = []
         for i, cand in enumerate(self.candidates):
@@ -143,25 +163,7 @@ class METAM:
         self.tau = len(self.clusters) if tau is None else tau
 
     def utility(self, data):
-        data = data.sample(frac=1, random_state=42).reset_index(drop=True)
-        split_idx = int(0.8 * len(data))
-        train_data = data.iloc[:split_idx]
-        test_data = data.iloc[split_idx:]
-        features_to_drop = [self.base_target_col, self.join_on]
-        X_train = train_data.drop(columns=features_to_drop).select_dtypes(include=[np.number])
-        X_test = test_data.drop(columns=features_to_drop).select_dtypes(include=[np.number])
-        train_means = X_train.mean()
-        X_train = X_train.fillna(train_means)
-        X_test = X_test.fillna(train_means)
-        y_train = train_data[self.base_target_col]
-        y_test = test_data[self.base_target_col]
-        if self.task_type == 'classification':
-            model = LogisticRegression(max_iter=1000)
-            model.fit(X_train, y_train)
-            preds = model.predict(X_test)
-            return accuracy_score(y_test, preds)
-        else:
-            raise NotImplementedError("Only classification is implemented.")
+        return compute_utility(data, self.base_target_col, [self.base_target_col, self.join_on], task_type=self.task_type)
 
     def merge_augmentation(self, data, candidate):
         df_candidate = candidate['df'].copy()
@@ -211,13 +213,11 @@ class METAM:
         clusters = {}
         for label, candidate in zip(labels, candidates):
             clusters.setdefault(label, []).append(candidate)
-        # st.write("DEBUG: Clustering results:", clusters)
         return clusters
 
     def update_quality_scores(self, candidate, observed_gain):
         alpha = 0.5
         candidate["quality_score"] = alpha * candidate["quality_score"] + (1 - alpha) * observed_gain
-        # st.write(f"DEBUG: Updated quality score for candidate ({candidate['name']}): {candidate['quality_score']:.4f}")
 
     def identify_group(self, clusters, t):
         group = []
@@ -228,7 +228,6 @@ class METAM:
                 group.append(best)
             if len(group) >= t:
                 break
-        # st.write("DEBUG: Identified group for querying:", [cand["name"] for cand in group])
         return group
 
     def check_stop_criterion(self, current_util, prev_util, tol=1e-3):
@@ -242,24 +241,18 @@ class METAM:
             for a in temp_set:
                 temp_data = self.merge_augmentation(temp_data, a)
             util_without = self.utility(temp_data)
-            # st.write(f"DEBUG: Utility without candidate ({aug['name']}): {util_without:.4f}")
             if util_without >= self.theta:
-                # st.write(f"DEBUG: Removing candidate ({aug['name']}) from solution set")
                 minimal_set.remove(aug)
         return minimal_set
 
     def run_metam(self, max_iter=50):
         current_data = self.base_data.copy()
         current_util = self.utility(current_data)
-        # st.write(f"DEBUG: Initial utility: <span class='metric'>{current_util:.4f}</span>", unsafe_allow_html=True)
         prev_util = current_util
         iteration = 0
 
-        while current_util < self.theta and any(
-                not cand["queried"] for cand in self.candidates) and iteration < max_iter:
+        while current_util < self.theta and any(not cand["queried"] for cand in self.candidates) and iteration < max_iter:
             iteration += 1
-            # st.write(f"<div class='subheader'>DEBUG: Iteration {iteration}, current utility: {current_util:.4f}</div>",
-            #          unsafe_allow_html=True)
             unqueried = [cand for cand in self.candidates if not cand["queried"]]
             if not unqueried:
                 break
@@ -268,9 +261,6 @@ class METAM:
             merged_candidate = self.merge_augmentation(current_data, candidate)
             cand_util = self.utility(merged_candidate)
             observed_gain = max(cand_util - current_util, 0)
-            # st.write(
-            #     f"DEBUG: Candidate (<b>{candidate['name']}</b>) utility after merge: <span class='metric'>{cand_util:.4f}</span> (Gain: {observed_gain:.4f})",
-            #     unsafe_allow_html=True)
             self.update_quality_scores(candidate, observed_gain)
 
             group = self.identify_group(self.clusters, t=self.tau)
@@ -282,36 +272,26 @@ class METAM:
                     group_results.append((cand, util_group))
                     cand["queried"] = True
                     self.update_quality_scores(cand, max(util_group - current_util, 0))
-                    # st.write(
-                    #     f"DEBUG: Group candidate (<b>{cand['name']}</b>) utility after merge: <span class='metric'>{util_group:.4f}</span>",
-                    #     unsafe_allow_html=True)
 
             candidates_to_consider = [candidate] + [cand for cand, _ in group_results]
             best_candidate = max(candidates_to_consider,
                                  key=lambda c: self.utility(self.merge_augmentation(current_data, c)))
             best_util = self.utility(self.merge_augmentation(current_data, best_candidate))
-            # st.write(f"DEBUG: Best candidate selected has utility: <span class='metric'>{best_util:.4f}</span>",
-            #          unsafe_allow_html=True)
 
             if best_util > current_util:
-                # st.write(
-                #     f"DEBUG: Selected candidate (<b>{best_candidate['name']}</b>) improves utility from {current_util:.4f} to {best_util:.4f}")
-                # current_data = self.merge_augmentation(current_data, best_candidate)
+                current_data = self.merge_augmentation(current_data, best_candidate)
                 self.selected_augmentations.append(best_candidate)
                 current_util = best_util
             else:
-                # st.write("DEBUG: No candidate improved utility significantly. Stopping.")
                 break
 
             if self.check_stop_criterion(current_util, prev_util):
-                # st.write("DEBUG: Stop criterion met (minimal improvement).")
                 break
             prev_util = current_util
 
         minimal_solution = self.identify_minimal(self.selected_augmentations)
-        st.write("DEBUG: Final selected augmentations:", [cand["name"] for cand in minimal_solution])
+        # st.write("Final selected augmentations:", [cand["name"] for cand in minimal_solution])
         return current_data, current_util, minimal_solution
-
 
 def main():
 
@@ -325,19 +305,20 @@ def main():
     st.markdown("<div class='main-title'><h1>METAM: Goal-Oriented Data Augmentation</h1></div>", unsafe_allow_html=True)
     st.sidebar.header("Select Experiment")
     experiment = st.sidebar.selectbox("Choose Experiment",
-                                      ("Expensive Housing Prediction in Seattle",
+                                      ("Seattle Housing Price Regression",
                                        "High Cat Ratio Prediction",
                                        "Boston Housing Experiment"))
 
     start_time = time.time()
 
-    if experiment == "Expensive Housing Prediction in Seattle":
-        st.markdown("<div class='experiment-box'><h2>Experiment 1: Predicting Expensive Housing</h2></div>",
-                    unsafe_allow_html=True)
+    if experiment == "Seattle Housing Price Regression":
+        st.markdown("<div class='experiment-box'><h3>Experiment 1: Seattle Housing Price Regression</h3></div>", unsafe_allow_html=True)
+        # Base dataset: Seattle housing prices with target 'price'
         base_df = pd.read_csv("data/seattle_housing_prices.csv")
         base_df.rename(columns={"zip_code": "zipcode"}, inplace=True)
-        median_price = base_df["price"].median()
-        base_df["expensive"] = (base_df["price"] >= median_price).astype(int)
+        base_df["price"] = pd.to_numeric(base_df["price"], errors='coerce')
+        base_df = base_df.dropna(subset=["price"])
+        # Candidate augmentations: other datasets with zipcode
         candidate_crime = pd.read_csv("data/seattle_prop_crime_rate.csv")
         candidate_crime_tuple = (candidate_crime.copy(), "zipcode", "Crime Rate Data")
         candidate_pet = pd.read_csv("data/seattle_pet_licenses.csv")
@@ -347,20 +328,20 @@ def main():
         candidate_incomes.rename(columns={"Zip Code": "zipcode"}, inplace=True)
         candidate_incomes_tuple = (candidate_incomes.copy(), "zipcode", "Incomes Data")
         candidates = [candidate_crime_tuple, candidate_pet_tuple, candidate_incomes_tuple]
-        theta = st.sidebar.slider("Utility Threshold (theta)", 0.9, 1.0, 0.98)
+        theta = st.sidebar.slider("Utility Threshold (theta)", 0.2, 1.0, 0.7)
 
         metam = METAM(
             base_data=base_df,
-            base_target_col="expensive",
+            base_target_col="price",
             candidate_datasets=candidates,
             join_on="zipcode",
-            theta=theta
+            theta=theta,
+            task_type="regression"
         )
         final_data, final_util, chosen_augs = metam.run_metam()
 
     elif experiment == "High Cat Ratio Prediction":
-        st.markdown("<div class='experiment-box'><h2>Experiment 2: Predicting High Cat Ratio per Zipcode</h2></div>",
-                    unsafe_allow_html=True)
+        st.markdown("<div class='experiment-box'><h3>Experiment 2: Predicting High Cat Ratio per Zipcode</h3></div>", unsafe_allow_html=True)
         pets_df = pd.read_csv("data/seattle_pet_licenses.csv")
         pets_df.rename(columns={"zip_code": "zipcode"}, inplace=True)
         agg_df = pets_df.groupby("zipcode").agg(
@@ -381,13 +362,13 @@ def main():
             base_target_col="cat_present",
             candidate_datasets=candidates,
             join_on="zipcode",
-            theta=theta
+            theta=theta,
+            task_type="classification"
         )
         final_data, final_util, chosen_augs = metam.run_metam()
 
     else:  # Boston Housing Experiment
-        st.markdown("<div class='experiment-box'><h2>Experiment 3: Boston Housing Experiment</h2></div>",
-                    unsafe_allow_html=True)
+        st.markdown("<div class='experiment-box'><h3>Experiment 3: Boston Housing Experiment</h3></div>", unsafe_allow_html=True)
         df = pd.read_csv("data/boston_housing.csv")
         df["Id"] = df.index.astype(str)
         median_medv = df["MEDV"].median()
@@ -411,27 +392,103 @@ def main():
             base_target_col="expensive",
             candidate_datasets=candidates,
             join_on="Id",
-            theta=theta
+            theta=theta,
+            task_type="classification"
         )
         final_data, final_util, chosen_augs = metam.run_metam()
 
+    # 1) Compute base utility before run_metam
+    base_utility = metam.utility(base_df.copy())  # Utility of the unaugmented base dataset
+
     running_time = time.time() - start_time
     st.markdown("<div class='results-box'><h3>Results</h3></div>", unsafe_allow_html=True)
-    st.markdown(f"<p class='metric'>Final Utility: {final_util:.4f}</p>", unsafe_allow_html=True)
-    st.write("**Running Time (seconds):**", f"{running_time:.2f}")
-    st.write("**Selected Augmentations:**", [cand["name"] for cand in chosen_augs])
+    # st.markdown(f"<p class='metric'>Final Utility: {final_util:.4f}</p>", unsafe_allow_html=True)
+    # st.write("**Running Time (seconds):**", f"{running_time:.2f}")
+    # st.write("**Selected Augmentations:**", [cand["name"] for cand in chosen_augs])
+    chosen_aug_names = [cand["name"] for cand in chosen_augs]
+    chosen_aug_str = ", ".join(chosen_aug_names) if chosen_aug_names else "None"
+    st.markdown("""
+        <div style="
+            justify-content: space-between; 
+            margin-top: 20px;
+        ">
+            <!-- Box 1: Initial Utility -->
+            <div style="
+                background-color: #6A9C89; 
+                border-radius: 8px; 
+                padding: 15px; 
+                margin-right: 10px; 
+                text-align: center;
+            ">
+                <h4 style="margin: 5px 0;">Initial Utility</h4>
+                <p style="font-size:1.5em; font-weight:bold;">""" + f"{base_utility:.4f}" + """</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        justify-content: space-between; 
+        margin-top: 20px;
+    ">
+        <!-- Box 2: Final Utility -->
+        <div style="
+            background-color: #6A9C89; 
+            border-radius: 8px; 
+            padding: 15px; 
+            margin-right: 10px; 
+            text-align: center;
+        ">
+            <h4 style="margin: 5px 0;">Final Utility</h4>
+            <p style="font-size:1.5em; font-weight:bold;">""" + f"{final_util:.4f}" + """</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        justify-content: space-between; 
+        margin-top: 20px;
+    ">
+        <!-- Box 3: Running Time -->
+        <div style="
+            background-color: #6A9C89; 
+            border-radius: 8px; 
+            padding: 15px; 
+            margin-right: 10px; 
+            text-align: center;
+        ">
+            <h4 style="margin: 5px 0;">Running Time (seconds)</h4>
+            <p style="font-size:1.5em; font-weight:bold;">""" + f"{running_time:.2f}" + """</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="
+        margin-top: 20px;
+    ">
+        <!-- Box 4: Selected Augmentations -->
+        <div style="
+            background-color: #6A9C89; 
+            border-radius: 8px; 
+            padding: 15px; 
+            text-align: center;
+        ">
+            <h4 style="margin: 5px 0;">Selected Augmentations</h4>
+            <p style="font-size:1.2em;">""" + chosen_aug_str + """</p>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     # st.markdown("<h3>Merged Data Summary</h3>", unsafe_allow_html=True)
     # st.write(final_data.describe(include='all'))
 
     st.markdown("<h3>Analysis Summary</h3>", unsafe_allow_html=True)
-    if experiment == "Expensive Housing Prediction in Seattle":
+    if experiment == "Seattle Housing Price Regression":
         st.markdown("""
-        **Experiment 1: Predicting Expensive Housing**  
-        - **Setup:** Base dataset from Seattle Housing Prices with target 'expensive'.  
+        **Experiment 1: Seattle Housing Price Regression**  
+        - **Setup:** Base dataset from Seattle Housing Prices with target 'price' (continuous).  
           Candidate augmentations include Crime Rate Data, Pet Licenses Data, and Incomes Data.  
-        - **Observation:** The base model achieved near-perfect performance (≈98% accuracy), so candidate augmentations did not yield significant improvement.  
-        - **Conclusion:** METAM avoided unnecessary augmentation because the base data was already highly predictive.
+        - **Observation:** Predicting the actual housing price is a challenging task due to market complexity. METAM merges candidate datasets that add valuable information—improving the regression model's R² score beyond the baseline performance.  
+        - **Conclusion:** This experiment demonstrates that METAM can be applied to complex regression tasks. By augmenting the base housing data with external factors, the predictive power (R² score) of the model increases, indicating improved performance.
         """)
     elif experiment == "High Cat Ratio Prediction":
         st.markdown("""
