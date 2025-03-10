@@ -110,6 +110,40 @@ as proposed in the paper “Goal-Oriented Data Discovery” [Sainyam Galhotra
 Sofiya Shtetenson and Timna Smadja 
 \end_layout
 
+\begin_layout Standard
+\align center
+
+\series bold
+\size large
+\color blue
+\begin_inset CommandInset href
+LatexCommand href
+name "GitHub"
+target "https://github.com/timnas/METAM_algorithm.git"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\align center
+
+\series bold
+\size large
+\color blue
+\begin_inset CommandInset href
+LatexCommand href
+name "Streamlit App"
+target "https://metam-algorithm-analysis.streamlit.app/"
+literal "false"
+
+\end_inset
+
+
+\end_layout
+
 \begin_layout Section
 Introduction
 \end_layout
